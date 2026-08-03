@@ -160,10 +160,10 @@ CONFIG = load_config()
 
 def resolve_custom_webhook():
     """返回用户自定义的 webhook 地址（去尾斜杠）；未设置返回 ''。
-    优先级：WEBHOOK_URL 环境变量 > PUBLIC_URL 环境变量 > 配置文件 webhook_url。"""
+    优先级：WEBHOOK_URL > 配置文件 webhook_url > PUBLIC_URL（用户配置优先于平台注入地址）。"""
     for src in (os.environ.get("WEBHOOK_URL"),
-                os.environ.get("PUBLIC_URL"),
-                CONFIG.get("webhook_url")):
+                CONFIG.get("webhook_url"),
+                os.environ.get("PUBLIC_URL")):
         v = (src or "").strip().rstrip("/")
         if v:
             return v
