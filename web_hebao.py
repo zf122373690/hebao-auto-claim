@@ -202,6 +202,7 @@ web_state = {
     "lastCodeAt": None,
     "lastCodeTime": "",
     "usedCodes": [],
+    "hookMessages": [],    # 最近收到的短信记录(云服务器自拉取用, 格式同外部 Webhook 列表)
 }
 code_queue = queue.Queue()          # 识别到的验证码队列（FIFO，按短信到达顺序）
 stop_ev = threading.Event()          # 用于「停止」时唤醒等待中的线程
@@ -622,6 +623,7 @@ def run_flow(phone, skip_login, selected=None, repeat=1, interval=60):
     web_state["lastCode"] = ""        # 每次运行干净起步，避免上次残留码污染本次 since/skip_code
     web_state["lastCodeTime"] = ""
     web_state["usedCodes"] = []       # 清空本次运行已用码集合，杜绝延迟重复投递的旧码被复用
+    web_state["hookMessages"] = []     # 清空历史消息，只认本次运行期间收到的短信
     # 配置了外部 Webhook 地址时，开启「主动轮询拉取」模式（无需手动粘短信）
     poll_url = web_state.get("customWebhook") or ""
     if not poll_url:
@@ -780,10 +782,16 @@ def push_sms(raw_text, query):
         web_state["lastCode"] = code
         web_state["lastCodeAt"] = int(time.time())
         log(f"📩 收到短信，识别出验证码: {code}")
-        return code, "ok"
-    snippet = (raw_text or "")[:80].replace("\n", " ")
-    log("📩 收到短信，但未识别到验证码（原始: " + snippet + "）")
-    return None, "no code"
+    else:
+        snippet = (raw_text or "")[:80].replace("\n", " ")
+        log("📩 收到短信，但未识别到验证码（原始: " + snippet + "）")
+    # 存储到本地消息列表（云服务器自拉取用：GET /api/hooks 需返回列表给 _fetch_hook_list 读取）
+    with _lock:
+        msg = {"time": _now_hms(), "body": (raw_text or "")[:500]}
+        web_state["hookMessages"].insert(0, msg)
+        if len(web_state["hookMessages"]) > 100:
+            web_state["hookMessages"] = web_state["hookMessages"][:100]
+    return code if code else None, "ok" if code else "no code"
 
 
 # ----------------------------------------------------------------------------
@@ -1242,7 +1250,7 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/healthz":
             self._send(200, {"ok": True})
         elif p in ("/webhook/sms", "/api/hooks"):
-            self._send(200, {"ok": True, "msg": "GET 仅用于探活，请使用 POST 发送短信"})
+            self._send(200, list(web_state.get("hookMessages", [])))
         elif p == "/api/accounts":
             self._send(200, {"accounts": [
                 {"phone": a.get("phone", ""), "label": a.get("label", ""),
