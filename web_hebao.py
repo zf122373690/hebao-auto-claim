@@ -406,9 +406,13 @@ def _is_freq(resp):
 
 
 def _fetch_hook_list(poll_url):
-    """GET 外部 Webhook 接收器暴露的列表接口，返回条目数组（最新在前）。
+    """GET Webhook 列表接口，返回条目数组（最新在前）。
+    自动补全 /api/hooks 路径（兼容用户只填域名/根地址的情况，如 http://hk.xxx:3032/ ）。
     不同平台返回结构可能不同，这里尽量兼容：裸数组 / {"data": [...]}。"""
-    req = urllib.request.Request(poll_url, headers={"User-Agent": "hebao/1.0"})
+    u = (poll_url or "").rstrip("/")
+    if u and not re.search(r"(/api/hooks|/webhook/sms)$", u):
+        u = u + "/api/hooks"
+    req = urllib.request.Request(u, headers={"User-Agent": "hebao/1.0"})
     with urllib.request.urlopen(req, timeout=8) as r:
         data = r.read().decode("utf-8", "replace")
     arr = json.loads(data)
