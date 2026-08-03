@@ -536,7 +536,7 @@ def claim_with_retry(sess_key, phone, amount, retries=3, poll_url=None):
         # since 推进到「上一条已消费码的平台时间」：即便上步的码仍残留在列表里也不会被读回，
         # 只认本次发送之后、且比上一条更新的码；兑换码严格 4 位，绝不读非 4 位。
         eff_since = web_state.get("lastCodeTime") or _now_hms()
-        code = wait_for_code(300, poll_url=poll_url, since=eff_since, digits=4)
+        code = wait_for_code(120, poll_url=poll_url, since=eff_since, digits=4)
         if not code:
             log(f"{name}: 验证码等待超时")
             continue
@@ -631,9 +631,11 @@ def run_flow(phone, skip_login, selected=None, repeat=1, interval=60):
         # 取该账号已保存会话；有则复用，无则走登录流程
         acct = get_account(phone) or {}
         saved_sess = acct.get("sessKey", "") if acct else ""
+        reused_session = False
         if skip_login and saved_sess:
             web_state["sessKey"] = saved_sess
             log(f"复用已保存会话，跳过登录（账号 {phone}）")
+            reused_session = True
         else:
             sk = login_flow(phone, poll_url)
             if not sk:
@@ -675,20 +677,25 @@ def run_flow(phone, skip_login, selected=None, repeat=1, interval=60):
                     consec_none = 0
                     log(f"✅ {amount}元 · {name} 领取成功（{done}/{total}）")
                 elif detail is None:
-                    # None = 当日次数上限/不可领取：直接跳过该商品，不再获取验证码
+                    # None = 当日次数上限/不可领取 或 会话过期（都返回空 body）
                     consec_none += 1
-                    if consec_none >= 2 and not relogin_done and not stop_ev.is_set():
-                        # 连续多个商品都返回空 → 疑似会话过期(而非单商品上限)，自动重登一次再试本商品
-                        log("⚠️ 连续多个商品领取返回空，疑似会话失效，自动重新登录…")
+                    # 复用已保存会话时，首次 None 就可能是会话过期(上限不会出现在第一个商品且无之前成功)，
+                    # 立即重登一次；其他情况仍等连续≥2 个商品都 None 才重登（避免单商品上限误判）
+                    need_relogin = (not relogin_done and not stop_ev.is_set() and
+                                    (consec_none >= 2 or (reused_session and consec_none == 1)))
+                    if need_relogin:
+                        why = "复用会话首次失败，疑似会话已过期" if reused_session and consec_none == 1 else "连续多个商品返回空，疑似会话失效"
+                        log(f"⚠️ {why}，自动重新登录…")
                         new_sess = login_flow(phone, poll_url)
                         if new_sess:
                             sess = new_sess
+                            reused_session = False  # 重登后不再标记为复用旧会话
                             relogin_done = True
                             consec_none = 0
                             ok, detail = claim_with_retry(sess, ph, amount, poll_url=poll_url)
                             log(f"{'✅' if ok else '❌'} {amount}元 · {name} 重登后{'领取成功' if ok else '仍失败'}（{done}/{total}）")
                         else:
-                            log(f"⏭️ {amount}元 · {name} 当日领取次数已达上限，跳过（{done}/{total}）")
+                            log(f"⏭️ {amount}元 · {name} 登录失败，跳过（{done}/{total}）")
                     else:
                         log(f"⏭️ {amount}元 · {name} 当日领取次数已达上限，跳过（{done}/{total}）")
                 else:
