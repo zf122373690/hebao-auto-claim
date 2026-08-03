@@ -1468,6 +1468,10 @@ def main():
     web_state["webhookUrl"] = build_webhook_url()
     web_state["customWebhook"] = resolve_custom_webhook()
     web_state["webhookSource"] = "custom" if web_state["customWebhook"] else "builtin"
+    # 若从环境变量拿到了 Webhook 地址，持久化到配置文件，避免重启漏传 env 时丢失自动拉取能力
+    if web_state["customWebhook"] and os.environ.get("WEBHOOK_URL"):
+        CONFIG["webhook_url"] = web_state["customWebhook"].rstrip("/")
+        save_config(CONFIG)
     if CORE_ERROR:
         log("⚠️ 核心脚本加载失败，Web 服务仍可启动，但领券功能不可用: " + CORE_ERROR)
     else:
