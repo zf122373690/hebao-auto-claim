@@ -14,5 +14,5 @@ web_hebao_config.json
 *.log
 
 # ---------- Cloudflare Worker 本地依赖 / 状态 ----------
-cf-worker/node_modules/
-cf-worker/.wrangler/
+node_modules/
+.wrangler/
