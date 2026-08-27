@@ -23,3 +23,4 @@ BASE_URL = "https://xcxp.bj.10086.cn"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
