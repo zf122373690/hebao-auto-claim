@@ -70,6 +70,17 @@
       <div id="form-status" class="status" role="status"></div>
     </section>
     <section class="panel">
+      <div class="panel-head"><h2>每日定时执行</h2></div>
+      <form class="form" id="schedule-form">
+        <label>执行时间（北京时间）<input id="schedule-time" type="time" value="09:00" required></label>
+        <label>每个商品次数<input id="schedule-repeat" type="number" min="1" max="3" value="1" required></label>
+        <label><span>启用定时任务</span><input id="schedule-enabled" type="checkbox" style="width:18px;height:18px"></label>
+        <div style="grid-column:1/-1"><strong>执行账号</strong><div id="schedule-phones" class="product-list"></div></div>
+        <button class="btn btn-primary" type="submit">保存定时设置</button>
+        <div id="schedule-status" class="status" role="status"></div>
+      </form>
+    </section>
+    <section class="panel">
       <div class="panel-head"><h2>账号列表</h2><button id="refresh" class="btn btn-secondary" type="button">刷新</button></div>
       <div id="accounts" class="accounts"><div class="empty">正在加载...</div></div>
       <div id="task-status" class="status" role="status"></div>
@@ -80,6 +91,7 @@
     const formStatus = document.querySelector('#form-status');
     const taskStatus = document.querySelector('#task-status');
     const productList = document.querySelector('#product-list');
+    const scheduleStatus = document.querySelector('#schedule-status');
     let products = [];
     const message = (el, text, ok = true) => { el.textContent = text; el.className = `status show ${ok ? 'ok' : 'error'}`; };
     const api = async (url, options) => { const response = await fetch(url, options); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.msg || `请求失败 (${response.status})`); return data; };
@@ -93,6 +105,9 @@
         productList.innerHTML = products.map(p => `<label class="product"><input type="checkbox" value="${escapeHtml(p.amount)}" checked><span>${escapeHtml(p.amount)} 元 · ${escapeHtml(p.name)}<small>权益代码 ${escapeHtml(p.rightsCode)}</small></span></label>`).join('');
         const accountData = await api('/api/accounts');
         const accounts = accountData.accounts || [];
+        const schedule = await api('/api/schedule');
+        document.querySelector('#schedule-time').value=schedule.time||'09:00'; document.querySelector('#schedule-repeat').value=schedule.repeat||1; document.querySelector('#schedule-enabled').checked=Boolean(schedule.enabled);
+        document.querySelector('#schedule-phones').innerHTML=accounts.map(a=>`<label class="product"><input type="checkbox" value="${escapeHtml(a.phone)}" ${schedule.phones?.includes(a.phone)?'checked':''}><span>${escapeHtml(a.phone)} · ${escapeHtml(a.label||'未设置备注')}</span></label>`).join('')||'<div class="empty">请先添加账号</div>';
         if (!accounts.length) { accountsEl.innerHTML = '<div class="empty">还没有账号，请先添加手机号。</div>'; return; }
         accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="test-login">测试登录验证码</button><button class="btn btn-secondary" data-action="test-claim">测试兑换验证码</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div><div class="task-products" data-products>当前商品：未启动</div><div class="log-panel"><div class="log-meta" data-status>状态：空闲</div><div class="logs" data-logs>暂无日志</div></div></div>`).join('');
         pollStatuses();
@@ -113,6 +128,7 @@
       } catch (error) { message(taskStatus, error.message, false); } finally { button.disabled = false; }
     });
     document.querySelector('#refresh').addEventListener('click', load); load();
+    document.querySelector('#schedule-form').addEventListener('submit', async event => { event.preventDefault(); try { const phones=[...document.querySelectorAll('#schedule-phones input:checked')].map(x=>x.value); const amounts=[...productList.querySelectorAll('input:checked')].map(x=>x.value); const result=await request('/api/schedule',{enabled:document.querySelector('#schedule-enabled').checked,time:document.querySelector('#schedule-time').value,repeat:Number(document.querySelector('#schedule-repeat').value),phones,amounts}); message(scheduleStatus,result.msg||'已保存'); } catch(error) { message(scheduleStatus,error.message,false); } });
     document.querySelector('#select-all').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = true; }));
     document.querySelector('#select-none').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = false; }));
     async function pollStatuses() { for (const row of accountsEl.querySelectorAll('.account')) { try { const data=await api(`/api/status?phone=${encodeURIComponent(row.dataset.phone)}`); row.querySelector('[data-status]').textContent=`状态：${data.state || 'idle'}${data.error ? ` · ${data.error}` : ''}`; const logs=data.logs || []; row.querySelector('[data-logs]').textContent=logs.length ? logs.map(item=>`${new Date(item.time).toLocaleTimeString()}  ${item.text}`).join('\n') : '暂无日志'; } catch {} } }
