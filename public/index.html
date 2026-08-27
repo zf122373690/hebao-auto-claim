@@ -31,6 +31,7 @@
     .account { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #eceef0; }
     .account:last-child { border-bottom: 0; } .phone { font-weight: 700; font-variant-numeric: tabular-nums; }
     .label { color: #737a82; margin-top: 3px; font-size: 13px; } .actions { display: flex; gap: 8px; }
+    .task-products { grid-column: 1 / -1; color: #4d545b; font-size: 13px; }
     .empty { text-align: center; padding: 42px 20px; color: #737a82; }
     .log-panel { grid-column: 1 / -1; background: #f7f8fa; border-top: 1px solid #eceef0; padding: 12px; margin-top: 2px; border-radius: 6px; }
     .log-meta { color: #687078; font-size: 13px; margin-bottom: 8px; }
@@ -93,7 +94,7 @@
         const accountData = await api('/api/accounts');
         const accounts = accountData.accounts || [];
         if (!accounts.length) { accountsEl.innerHTML = '<div class="empty">还没有账号，请先添加手机号。</div>'; return; }
-        accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div><div class="log-panel"><div class="log-meta" data-status>状态：空闲</div><div class="logs" data-logs>暂无日志</div></div></div>`).join('');
+        accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="test-login">测试登录验证码</button><button class="btn btn-secondary" data-action="test-claim">测试兑换验证码</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div><div class="task-products" data-products>当前商品：未启动</div><div class="log-panel"><div class="log-meta" data-status>状态：空闲</div><div class="logs" data-logs>暂无日志</div></div></div>`).join('');
         pollStatuses();
       } catch (error) { accountsEl.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
     }
