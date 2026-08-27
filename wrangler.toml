@@ -8,7 +8,7 @@ crons = ["*/5 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "hebao"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "15732dfc-18e3-4696-b1b3-f883e0a32fab"
 
 [[durable_objects.bindings]]
 name = "CLAIM_RUNNER"
