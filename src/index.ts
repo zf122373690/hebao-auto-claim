@@ -46,9 +46,14 @@ async function apiCall(env: Env, ability: string, data: Record<string, unknown>,
   const bytes=enc.encode(plain), pad=16-(bytes.length%16), padded=new Uint8Array(bytes.length+pad); padded.set(bytes); padded.fill(pad,bytes.length);
   const cipher=await crypto.subtle.encrypt({name:"AES-CBC",iv},key,padded);
   const payload=b64(new Uint8Array([...iv,...new Uint8Array(cipher)]).buffer);
-  const response=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json;charset=UTF-8",source:"Local",Origin:"https://xcxp.bj.10086.cn"},body:JSON.stringify(payload)});
-  const result=await response.json().catch(()=>null) as any;
-  if (!result || result.resultCode !== "0") throw new Error(result?.resultMsg || `和包接口错误 ${response.status}`);
+  let result:any=null, status=0, rawText="";
+  for(let attempt=1; attempt<=3; attempt++) {
+    const response=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json;charset=UTF-8","User-Agent":"Mozilla/5.0","Accept":"application/json, text/plain, */*",source:"Local",Origin:"https://xcxp.bj.10086.cn",Referer:"https://xcxp.bj.10086.cn/rights-front/dist/index.html"},body:JSON.stringify(payload)});
+    status=response.status; rawText=await response.text(); try { result=JSON.parse(rawText || "null"); } catch { result=null; }
+    if(status<500 && status!==520) break;
+    if(attempt<3) await new Promise(resolve=>setTimeout(resolve,attempt*1500));
+  }
+  if (!result || result.resultCode !== "0") { const detail=result?.resultMsg || rawText.slice(0,120); throw new Error(`和包接口错误 ${status}${detail ? `: ${detail}` : ""}`); }
   const raw=result.body; return raw && raw !== "null" ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
 }
 
