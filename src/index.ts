@@ -17,7 +17,7 @@ const PRODUCTS: Record<string, { rightsCode: string; legalRightsId: string; offe
 };
 const json = (x: unknown, status=200) => new Response(JSON.stringify(x), {status, headers:{"content-type":"application/json;charset=utf-8"}});
 const body = async (r: Request) => await r.json().catch(() => ({})) as Record<string, unknown>;
-const codeFrom = (s: string, digits?: number) => { if (!/(验证码|动态码|校验码|随机码|口令|verification\s*code)/i.test(s)) return null; const pattern="\\b\\d{" + (digits ?? 4) + "," + (digits ?? 8) + "}\\b"; return s.match(new RegExp(pattern))?.[0] ?? null; };
+const codeFrom = (s: string, digits?: number) => { if (!/(验证码|动态码|校验码|随机码|口令|verification\\s*code)/i.test(s)) return null; const range="\\d{" + (digits ?? 4) + "," + (digits ?? 8) + "}"; const near=s.match(new RegExp("(?:验证码|动态码|校验码|随机码|口令|verification\\s*code)\\D{0,12}("+range+")","i")); if(near?.[1]) return near[1]; return s.match(new RegExp("\\b"+range+"\\b"))?.[0] ?? null; };
 const phoneFrom = (s: string) => s.match(/1[3-9]\d{9}/)?.[0] ?? null;
 const webhookAuthorized = (req: Request, secret?: string) => {
   if (!secret) return true;
