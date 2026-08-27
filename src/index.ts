@@ -5,6 +5,7 @@ export interface Env {
   BASE_URL: string;
   ACCESS_TOKEN: string;
   AES_KEY: string;
+  AES_IV?: string;
   WEBHOOK_SECRET?: string;
 }
 
@@ -23,6 +24,30 @@ const webhookAuthorized = (req: Request, secret?: string) => {
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   return [req.headers.get("x-webhook-secret"), req.headers.get("x-device-token"), bearer].includes(secret);
 };
+const API_URL = "https://xcxp.bj.10086.cn/rights-intf/api/outer/invoke.do";
+const RETAILER_CODE = "BJYDJTAPP001", SON_RETAILER_CODE = "A004";
+const enc = new TextEncoder();
+const b64 = (x: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(x)));
+async function apiCall(env: Env, ability: string, data: Record<string, unknown>, sessKey = "", phone = "") {
+  const now = new Date(), timestamp = now.toISOString().replace(/[-:TZ.]/g, "").slice(0,14);
+  const randomstr = crypto.randomUUID().replace(/-/g, "").slice(0,8);
+  const transactionId = "1" + Date.now().toString().slice(-13) + randomstr;
+  const p: Record<string,string> = {accessToken:env.ACCESS_TOKEN,body:JSON.stringify(data),randomstr,timestamp,transactionId};
+  if (sessKey) { p.sessKey=sessKey; p.traceMemberPhone=phone; }
+  const signText = ["abilityCode="+ability, ...Object.keys(p).sort().map(k=>k+"="+p[k])].join("&");
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(signText));
+  const sig = [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+  let plain = ability; for (const k of Object.keys(p).sort()) plain += `","${k}":"${p[k].replace(/"/g,"\\\"")}`; plain += `","sign":"${sig}"}`;
+  const key = await crypto.subtle.importKey("raw", enc.encode(env.AES_KEY), "AES-CBC", false, ["encrypt"]);
+  const iv = Uint8Array.from((env.AES_IV || "0e0a264a19793f69b500ec279b044524").match(/../g)!.map(x=>parseInt(x,16)));
+  const bytes=enc.encode(plain), pad=16-(bytes.length%16), padded=new Uint8Array(bytes.length+pad); padded.set(bytes); padded.fill(pad,bytes.length);
+  const cipher=await crypto.subtle.encrypt({name:"AES-CBC",iv},key,padded);
+  const payload=b64(new Uint8Array([...iv,...new Uint8Array(cipher)]).buffer);
+  const response=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json;charset=UTF-8",source:"Local",Origin:"https://xcxp.bj.10086.cn"},body:JSON.stringify(payload)});
+  const result=await response.json().catch(()=>null) as any;
+  if (!result || result.resultCode !== "0") throw new Error(result?.resultMsg || `和包接口错误 ${response.status}`);
+  const raw=result.body; return raw && raw !== "null" ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
+}
 
 export default { async fetch(req: Request, env: Env): Promise<Response> {
   const u = new URL(req.url), path = u.pathname.replace(/\/$/, "");
@@ -56,5 +81,7 @@ export default { async fetch(req: Request, env: Env): Promise<Response> {
 
 export class ClaimRunner {
   constructor(private state: DurableObjectState, private env: Env) {}
-  async fetch(req: Request) { const path=new URL(req.url).pathname; if(path==="/stop"){await this.state.storage.put("run",{state:"stopped"});return json({ok:true});} if(path!=="/start") return json({ok:false},404); const b=await req.json(); const old=await this.state.storage.get<any>("run"); if(old?.state==="running") return json({ok:false,msg:"已有任务在运行"},409); await this.state.storage.put("run",{state:"waiting_login",payload:b,updatedAt:Date.now()}); return json({ok:true,msg:"任务已排队，验证码到达后继续"}); }
+  async fetch(req: Request) { const path=new URL(req.url).pathname; if(path==="/stop"){await this.state.storage.put("run",{state:"stopped"});return json({ok:true});} if(path!=="/start") return json({ok:false},404); const b=await req.json() as any; const old=await this.state.storage.get<any>("run"); if(old?.state==="running"||old?.state==="waiting_login") return json({ok:false,msg:"已有任务在运行"},409); try { await apiCall(this.env,"SMS_VERI_CODE_SEND",{receviNo:b.phone},"",b.phone); await this.state.storage.put("run",{state:"waiting_login",payload:b,updatedAt:Date.now()}); await this.state.storage.setAlarm(Date.now()+3000); return json({ok:true,msg:"登录验证码已发送，请等待短信"}); } catch(e) { return json({ok:false,msg:String(e)},502); } }
+  async alarm() { const run=await this.state.storage.get<any>("run"); if(!run || run.state==="stopped") return; const {phone}=run.payload; const row=await this.env.DB.prepare("SELECT id,code FROM sms_messages WHERE consumed_at IS NULL AND expires_at>? AND code IS NOT NULL AND phone=? ORDER BY received_at DESC LIMIT 1").bind(Date.now(),phone).first<any>(); if(!row){await this.state.storage.setAlarm(Date.now()+3000);return;} try { if(run.state==="waiting_login"){const login=await apiCall(this.env,"APP_LOGIN_CHK_SMS",{receviNo:phone,verificationCode:row.code,retailerCode:RETAILER_CODE,sonRetailerCode:SON_RETAILER_CODE},"",phone); const sess=login?.sessKey; if(!sess) throw new Error("登录未返回 sessKey"); await this.consume(row.id); await this.state.storage.put("run",{...run,state:"claiming",sessKey:sess,index:0,updatedAt:Date.now()}); } else if(run.state==="claiming"){const amounts=Array.isArray(run.payload.amounts)&&run.payload.amounts.length?run.payload.amounts:Object.keys(PRODUCTS); const amount=String(amounts[run.index]); const product=PRODUCTS[amount]; if(!product) throw new Error("商品不存在: "+amount); await apiCall(this.env,"BIZ_CONFIRM_SMS_SEND",{rightsCode:product.rightsCode},run.sessKey,phone); await this.state.storage.put("run",{...run,state:"waiting_claim_code",amount,updatedAt:Date.now()}); } else if(run.state==="waiting_claim_code"){const amount=run.amount, product=PRODUCTS[amount]; await apiCall(this.env,"INNER_OPEN_TEL_FEE_AUTH",{accNbr:phone,rightCode:product.rightsCode,price:String(Number(amount)*100),memberLevelCode:null,verifyCode:row.code,...(product.offerId?{offerId:product.offerId}:{})},run.sessKey,phone); await this.consume(row.id); const amounts=run.payload.amounts?.length?run.payload.amounts:Object.keys(PRODUCTS); const next=run.index+1; await this.state.storage.put("run",next<amounts.length?{...run,state:"claiming",index:next,updatedAt:Date.now()}:{...run,state:"done",updatedAt:Date.now()}); } } catch(e){await this.state.storage.put("run",{...run,state:"error",error:String(e),updatedAt:Date.now()});} if((await this.state.storage.get<any>("run"))?.state!=="done") await this.state.storage.setAlarm(Date.now()+3000); }
+  private async consume(id:number){await this.env.DB.prepare("UPDATE sms_messages SET consumed_at=? WHERE id=?").bind(Date.now(),id).run();}
 }
