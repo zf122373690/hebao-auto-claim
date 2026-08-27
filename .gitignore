@@ -12,3 +12,7 @@ web_hebao_config.json
 # ---------- 本地工具 / 缓存 ----------
 .workbuddy/
 *.log
+
+# ---------- Cloudflare Worker 本地依赖 / 状态 ----------
+cf-worker/node_modules/
+cf-worker/.wrangler/

@@ -1,0 +1,22 @@
+name = "hebao-keeper"
+main = "src/index.ts"
+compatibility_date = "2026-08-27"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hebao"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[durable_objects.bindings]]
+name = "CLAIM_RUNNER"
+class_name = "ClaimRunner"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ClaimRunner"]
+
+[vars]
+BASE_URL = "https://xcxp.bj.10086.cn"
