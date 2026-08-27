@@ -18,7 +18,7 @@
     .subtle { margin: 0; color: #687078; font-size: 14px; }
     .panel { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 20px; }
     .panel-head { padding: 18px 20px; border-bottom: 1px solid #eceef0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .form { padding: 20px; display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 14px; align-items: end; }
+    .form { padding: 20px; display: grid; grid-template-columns: 1.25fr 1fr auto; gap: 14px; align-items: end; }
     label { display: grid; gap: 7px; color: #4d545b; font-size: 13px; font-weight: 600; }
     input, select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #cbd0d6; border-radius: 6px; background: #fff; color: #202124; outline: none; }
     input:focus, select:focus { border-color: #237a57; box-shadow: 0 0 0 3px #237a5718; }
@@ -28,10 +28,18 @@
     .btn-danger { color: #b42318; background: #fff; border-color: #e5b8b4; }
     .btn:disabled { opacity: .55; cursor: not-allowed; }
     .accounts { padding: 0 20px; }
-    .account { display: grid; grid-template-columns: minmax(0,1fr) 210px auto; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #eceef0; }
+    .account { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #eceef0; }
     .account:last-child { border-bottom: 0; } .phone { font-weight: 700; font-variant-numeric: tabular-nums; }
     .label { color: #737a82; margin-top: 3px; font-size: 13px; } .actions { display: flex; gap: 8px; }
     .empty { text-align: center; padding: 42px 20px; color: #737a82; }
+    .products { padding: 18px 20px 20px; border-top: 1px solid #eceef0; }
+    .products-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .products-head strong { font-size: 14px; }
+    .product-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .product { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #dfe3e7; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .product:has(input:checked) { border-color: #237a57; background: #f1faf5; }
+    .product input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: #237a57; }
+    .product small { display: block; color: #737a82; font-size: 12px; margin-top: 3px; font-weight: 400; }
     .status { min-height: 24px; margin: 0 20px 16px; padding: 10px 12px; border-radius: 6px; font-size: 14px; display: none; }
     .status.show { display: block; } .status.ok { color: #17603f; background: #eaf6f0; } .status.error { color: #9b241a; background: #fcecea; }
     @media (max-width: 720px) {
@@ -52,6 +60,7 @@
         <label>备注<input name="label" maxlength="30" placeholder="选填"></label>
         <button class="btn btn-primary" type="submit">添加账号</button>
       </form>
+      <div class="products"><div class="products-head"><strong>选择兑换商品</strong><button id="select-all" class="btn btn-secondary" type="button">全选</button><button id="select-none" class="btn btn-secondary" type="button">全不选</button></div><div id="product-list" class="product-list"><div class="empty">正在加载商品...</div></div></div>
       <div id="form-status" class="status" role="status"></div>
     </section>
     <section class="panel">
@@ -64,6 +73,7 @@
     const accountsEl = document.querySelector('#accounts');
     const formStatus = document.querySelector('#form-status');
     const taskStatus = document.querySelector('#task-status');
+    const productList = document.querySelector('#product-list');
     let products = [];
     const message = (el, text, ok = true) => { el.textContent = text; el.className = `status show ${ok ? 'ok' : 'error'}`; };
     const api = async (url, options) => { const response = await fetch(url, options); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.msg || `请求失败 (${response.status})`); return data; };
@@ -73,18 +83,18 @@
     async function load() {
       accountsEl.innerHTML = '<div class="empty">正在加载...</div>';
       try {
-        const [productData, accountData] = await Promise.all([api('/api/products'), api('/api/accounts')]);
-        products = productData;
+        products = await api('/api/products');
+        productList.innerHTML = products.map(p => `<label class="product"><input type="checkbox" value="${escapeHtml(p.amount)}" checked><span>${escapeHtml(p.amount)} 元 · ${escapeHtml(p.name)}<small>权益代码 ${escapeHtml(p.rightsCode)}</small></span></label>`).join('');
+        const accountData = await api('/api/accounts');
         const accounts = accountData.accounts || [];
         if (!accounts.length) { accountsEl.innerHTML = '<div class="empty">还没有账号，请先添加手机号。</div>'; return; }
-        const options = products.map(p => `<option value="${escapeHtml(p.amount)}">${escapeHtml(p.name)}</option>`).join('');
-        accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><select aria-label="选择领取权益">${options}</select><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div></div>`).join('');
+        accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div></div>`).join('');
       } catch (error) { accountsEl.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
     }
 
     document.querySelector('#add-form').addEventListener('submit', async event => {
       event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector('button'); submit.disabled = true;
-      try { await request('/api/accounts', {phone:form.phone.value, label:form.label.value}); message(formStatus, '账号已添加'); form.reset(); await load(); }
+      try { const phone=form.phone.value; await request('/api/accounts', {phone, label:form.label.value}); message(formStatus, '账号已添加，请在账号列表中启动任务'); form.reset(); await load(); }
       catch (error) { message(formStatus, error.message, false); } finally { submit.disabled = false; }
     });
     accountsEl.addEventListener('click', async event => {
@@ -92,10 +102,12 @@
       const row = button.closest('.account'); const phone = row.dataset.phone; const action = button.dataset.action; button.disabled = true;
       try {
         if (action === 'delete') { await request('/api/accounts', {phone, action:'delete'}); message(taskStatus, `${phone} 已删除`); await load(); }
-        else { const result = await request(`/api/${action}`, {phone, amount:row.querySelector('select').value}); message(taskStatus, result.msg || (action === 'start' ? '任务已启动' : '任务已停止')); }
+        else { const amounts=[...productList.querySelectorAll('input:checked')].map(input=>input.value); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const result = await request(`/api/${action}`, {phone, amounts}); message(taskStatus, result.msg || (action === 'start' ? `任务已启动（${amounts.length} 个商品）` : '任务已停止')); }
       } catch (error) { message(taskStatus, error.message, false); } finally { button.disabled = false; }
     });
     document.querySelector('#refresh').addEventListener('click', load); load();
+    document.querySelector('#select-all').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = true; }));
+    document.querySelector('#select-none').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = false; }));
   </script>
 </body>
 </html>
