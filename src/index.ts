@@ -26,20 +26,23 @@ const webhookAuthorized = (req: Request, secret?: string) => {
 };
 const API_URL = "https://xcxp.bj.10086.cn/rights-intf/api/outer/invoke.do";
 const RETAILER_CODE = "BJYDJTAPP001", SON_RETAILER_CODE = "A004";
+const ACCESS_TOKEN = "1924d545b02f4de6b26e017253a5dd2d";
+const AES_KEY = "A9B6C6D8E4F3G2H1";
+const AES_IV = "0e0a264a19793f69b500ec279b044524";
 const enc = new TextEncoder();
 const b64 = (x: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(x)));
 async function apiCall(env: Env, ability: string, data: Record<string, unknown>, sessKey = "", phone = "") {
   const now = new Date(), timestamp = now.toISOString().replace(/[-:TZ.]/g, "").slice(0,14);
   const randomstr = crypto.randomUUID().replace(/-/g, "").slice(0,8);
   const transactionId = "1" + Date.now().toString().slice(-13) + randomstr;
-  const p: Record<string,string> = {accessToken:env.ACCESS_TOKEN,body:JSON.stringify(data),randomstr,timestamp,transactionId};
+  const p: Record<string,string> = {accessToken:ACCESS_TOKEN,body:JSON.stringify(data),randomstr,timestamp,transactionId};
   if (sessKey) { p.sessKey=sessKey; p.traceMemberPhone=phone; }
   const signText = ["abilityCode="+ability, ...Object.keys(p).sort().map(k=>k+"="+p[k])].join("&");
   const digest = await crypto.subtle.digest("SHA-256", enc.encode(signText));
   const sig = [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
   let plain = ability; for (const k of Object.keys(p).sort()) plain += `","${k}":"${p[k].replace(/"/g,"\\\"")}`; plain += `","sign":"${sig}"}`;
-  const key = await crypto.subtle.importKey("raw", enc.encode(env.AES_KEY), "AES-CBC", false, ["encrypt"]);
-  const iv = Uint8Array.from((env.AES_IV || "0e0a264a19793f69b500ec279b044524").match(/../g)!.map(x=>parseInt(x,16)));
+  const key = await crypto.subtle.importKey("raw", enc.encode(AES_KEY), "AES-CBC", false, ["encrypt"]);
+  const iv = Uint8Array.from(AES_IV.match(/../g)!.map(x=>parseInt(x,16)));
   const bytes=enc.encode(plain), pad=16-(bytes.length%16), padded=new Uint8Array(bytes.length+pad); padded.set(bytes); padded.fill(pad,bytes.length);
   const cipher=await crypto.subtle.encrypt({name:"AES-CBC",iv},key,padded);
   const payload=b64(new Uint8Array([...iv,...new Uint8Array(cipher)]).buffer);
