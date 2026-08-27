@@ -20,3 +20,6 @@ new_sqlite_classes = ["ClaimRunner"]
 
 [vars]
 BASE_URL = "https://xcxp.bj.10086.cn"
+
+[assets]
+directory = "./public"
