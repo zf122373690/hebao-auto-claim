@@ -1,33 +1,55 @@
-# 和包 Cloudflare 迁移版
+# 和包自动领取 Cloudflare Worker
 
-## 初始化
+基于 Cloudflare Workers、D1 和 Durable Objects 的和包自动领取服务。
+
+## 安装与部署
+
+需要 Node.js 18+ 和 Cloudflare 账号：
 
 ```powershell
 npm install
-npx wrangler d1 create hebao
+npx wrangler login
 npx wrangler d1 execute hebao --remote --file=schema.sql
-npx wrangler secret put ACCESS_TOKEN
-npx wrangler secret put AES_KEY
-npx wrangler secret put WEBHOOK_SECRET
+npm run check
 npx wrangler deploy
 ```
 
-把 `wrangler.toml` 中的 `database_id` 替换为创建出的 ID。短信转发器 POST 到 `/api/hooks`，并配置 `x-webhook-secret`。验证码写入 D1 的 `sms_messages` 表，默认 10 分钟过期；领取流程通过 `/api/codes` 获取，再调用 `/api/codes/consume` 原子消费。
+项目已配置 D1 数据库 `hebao`，ID 为 `15732dfc-18e3-4696-b1b3-f883e0a32fab`。首次使用必须在 Cloudflare D1 Console 执行 `schema.sql`，或使用上面的 `--remote` 命令。必须初始化远程数据库。
 
-当前目录是迁移骨架：账号、短信、任务状态、Cron 和 Cloudflare 绑定已完成。下一步需要把原 Python 的 AES-CBC/签名/API 调用逐个移植到 `src/core.ts`，再把 Durable Object 状态机接上验证码消费和领取间隔。
+部署后访问 `https://hebao.1992418.xyz`，健康检查为 `/healthz`。发布前可执行 `npx wrangler deploy --dry-run`。
 
-静态页面位于 `public/`，部署命令使用 `npx wrangler deploy`。如果使用 Cloudflare Pages 的纯静态部署流程，请选择 `public` 作为输出目录，并使用 Workers 部署而不是单独的 Pages 静态上传，以保留 API、D1 和 Durable Object。
+## 短信 Webhook
 
-## T3 Lite 短信 Webhook
-
-在 Lite 固件的推送通道中选择“自定义 Webhook”，填写：
-
-- Webhook URL：`https://你的 Worker 域名/api/hooks`
-- 鉴权 Token：与 Worker Secret `WEBHOOK_SECRET` 相同；未配置 Secret 时留空
-- 自定义模板：
+T3 Lite 选择自定义 Webhook，地址填写：
 
 ```text
-JSON:{"type":"sms","sender":"{{短信号码}}","message":"{{短信内容}}","sim":"{{SIM标签}}","simNumber":"{{卡号}}","timestamp":"{{时间}}"}
+https://你的域名/api/hooks
 ```
 
-Worker 同时接受 Lite 固件发送的 `Authorization: Bearer <Token>` 和 `X-Device-Token`。收到短信后从 `message` 提取验证码，以 `simNumber` 作为接收手机号，写入 D1 的 `sms_messages` 表；验证码默认 10 分钟过期，领取流程读取后会通过 `/api/codes/consume` 标记为已消费。
+推荐 JSON：
+
+```json
+{"type":"sms","message":"您的验证码为123456","simNumber":"15901357458"}
+```
+
+正文支持 `message`、`text`、`content`、`body`，手机号支持 `simNumber`、`phone`。Token 可放在 `Authorization: Bearer <Token>`、`X-Device-Token` 或 `x-webhook-secret`。若配置了 `WEBHOOK_SECRET`，Lite Token 必须一致。
+
+## 使用网页
+
+添加账号后勾选商品并启动。首次登录成功后，`sess_key` 保存到 D1，后续任务复用，会话失效后才重新登录。页面会显示任务日志；商品验证码超过 75 秒未收到会自动重发，多个商品之间遵守 60 秒频控。
+
+## 每日定时
+
+网页“每日定时执行”支持设置北京时间、启停、账号、商品和每个商品次数，配置保存到 D1 的 `settings` 表。Worker 每 5 分钟触发 Cron，只在设定时间执行，并用 `lastRun` 防止当天重复执行。
+
+## 常用命令
+
+```powershell
+npm run dev
+npm run check
+npx wrangler d1 execute hebao --remote --command "SELECT * FROM accounts"
+npx wrangler d1 execute hebao --remote --command "SELECT * FROM sms_messages ORDER BY received_at DESC LIMIT 20"
+npx wrangler deploy
+```
+
+验证码未到时，检查 Lite Webhook 地址、Token、`simNumber` 和 D1 的 `sms_messages` 记录。
