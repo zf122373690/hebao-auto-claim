@@ -9,21 +9,23 @@
 ```powershell
 npm install
 npx wrangler login
+npx wrangler d1 create hebao
+# 将返回的 database_id 填入 wrangler.toml 后再执行
 npx wrangler d1 execute hebao --remote --file=schema.sql
 npm run check
 npx wrangler deploy
 ```
 
-项目已配置 D1 数据库 `hebao`，ID 为 `15732dfc-18e3-4696-b1b3-f883e0a32fab`。首次使用必须在 Cloudflare D1 Console 执行 `schema.sql`，或使用上面的 `--remote` 命令。必须初始化远程数据库。
+请先创建属于自己的 D1 数据库，并将命令返回的 `database_id` 填入 `wrangler.toml` 的 `[[d1_databases]]` 配置。不要直接使用示例项目的数据库 ID。然后必须在自己的远程数据库执行 `schema.sql`，也可以在 Cloudflare D1 Console 中粘贴执行。
 
-部署后访问 `https://hebao.1992418.xyz`，健康检查为 `/healthz`。发布前可执行 `npx wrangler deploy --dry-run`。
+部署后访问 Cloudflare 分配的演示域名：`https://hebao-keeper.<你的账户>.workers.dev`，健康检查为 `/healthz`。发布前可执行 `npx wrangler deploy --dry-run`。
 
 ## 短信 Webhook
 
 T3 Lite 选择自定义 Webhook，地址填写：
 
 ```text
-https://你的域名/api/hooks
+https://hebao-keeper.<你的账户>.workers.dev/api/hooks
 ```
 
 推荐 JSON：
