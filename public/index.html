@@ -42,6 +42,7 @@
     .product { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #dfe3e7; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
     .product:has(input:checked) { border-color: #237a57; background: #f1faf5; }
     .product input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: #237a57; }
+    .daily-limit { margin-top: 14px; max-width: 260px; }
     .product small { display: block; color: #737a82; font-size: 12px; margin-top: 3px; font-weight: 400; }
     .status { min-height: 24px; margin: 0 20px 16px; padding: 10px 12px; border-radius: 6px; font-size: 14px; display: none; }
     .status.show { display: block; } .status.ok { color: #17603f; background: #eaf6f0; } .status.error { color: #9b241a; background: #fcecea; }
@@ -64,6 +65,7 @@
         <button class="btn btn-primary" type="submit">添加账号</button>
       </form>
       <div class="products"><div class="products-head"><strong>选择兑换商品</strong><button id="select-all" class="btn btn-secondary" type="button">全选</button><button id="select-none" class="btn btn-secondary" type="button">全不选</button></div><div id="product-list" class="product-list"><div class="empty">正在加载商品...</div></div></div>
+      <div class="products"><label class="daily-limit">每日每个商品兑换次数（最多 3 次）<input id="daily-limit" type="number" min="1" max="3" value="1" required></label></div>
       <div id="form-status" class="status" role="status"></div>
     </section>
     <section class="panel">
@@ -106,7 +108,7 @@
       const row = button.closest('.account'); const phone = row.dataset.phone; const action = button.dataset.action; button.disabled = true;
       try {
         if (action === 'delete') { await request('/api/accounts', {phone, action:'delete'}); message(taskStatus, `${phone} 已删除`); await load(); }
-        else { const amounts=[...productList.querySelectorAll('input:checked')].map(input=>input.value); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const result = await request(`/api/${action}`, {phone, amounts}); message(taskStatus, result.msg || (action === 'start' ? `任务已启动（${amounts.length} 个商品）` : '任务已停止')); await pollStatuses(); }
+        else { const amounts=[...productList.querySelectorAll('input:checked')].map(input=>input.value); const repeat=Math.max(1,Math.min(3,Number(document.querySelector('#daily-limit').value)||1)); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const result = await request(`/api/${action}`, {phone, amounts, repeat}); message(taskStatus, result.msg || (action === 'start' ? `任务已启动（每日每个商品 ${repeat} 次）` : '任务已停止')); await pollStatuses(); }
       } catch (error) { message(taskStatus, error.message, false); } finally { button.disabled = false; }
     });
     document.querySelector('#refresh').addEventListener('click', load); load();
