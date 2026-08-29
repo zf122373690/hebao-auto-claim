@@ -18,7 +18,8 @@ const PRODUCTS: Record<string, { rightsCode: string; legalRightsId: string; offe
 const json = (x: unknown, status=200) => new Response(JSON.stringify(x), {status, headers:{"content-type":"application/json;charset=utf-8"}});
 const body = async (r: Request) => await r.json().catch(() => ({})) as Record<string, unknown>;
 const codeFrom = (s: string, digits?: number) => { if (!/(验证码|动态码|校验码|随机码|口令|verification\\s*code)/i.test(s)) return null; const range="\\d{" + (digits ?? 4) + "," + (digits ?? 8) + "}"; const near=s.match(new RegExp("(?:验证码|动态码|校验码|随机码|口令|verification\\s*code)\\D{0,12}("+range+")","i")); if(near?.[1]) return near[1]; return s.match(new RegExp("\\b"+range+"\\b"))?.[0] ?? null; };
-const phoneFrom = (s: string) => s.match(/1[3-9]\d{9}/)?.[0] ?? null;
+const normalizePhone = (value: unknown) => { const digits=String(value??"").replace(/\D/g,""); return digits.length>=11 && digits.slice(-11).match(/^1[3-9]\d{9}$/) ? digits.slice(-11) : null; };
+const phoneFrom = (s: string) => normalizePhone(s.match(/(?:\+?86[- ]?)?1[3-9]\d{9}/)?.[0]);
 const webhookAuthorized = (req: Request, secret?: string) => {
   if (!secret) return true;
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -74,8 +75,7 @@ export default { async fetch(req: Request, env: Env): Promise<Response> {
     const eventType=String(payload.type ?? "sms").toLowerCase();
     if (eventType !== "sms") return json({ok:true,ignored:true,type:eventType});
     const text=String(payload.message ?? payload.text ?? payload.content ?? payload.body ?? parsed);
-    const explicitPhone=String(payload.simNumber ?? payload.phone ?? "");
-    const phone=/^1[3-9]\d{9}$/.test(explicitPhone) ? explicitPhone : phoneFrom(text);
+    const phone=normalizePhone(payload.simNumber ?? payload.phone) ?? phoneFrom(text);
     const code=codeFrom(text);
     const now=Date.now();
     await env.DB.prepare("INSERT INTO sms_messages(body,code,phone,digits,received_at,expires_at) VALUES(?,?,?,?,?,?)").bind(text,code,phone,code?.length ?? null,now,now+10*60*1000).run();
