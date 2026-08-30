@@ -78,18 +78,6 @@
       <div id="form-status" class="status" role="status"></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h2>每日定时执行</h2></div>
-      <form class="form" id="schedule-form">
-        <label>执行时间（北京时间）<input id="schedule-time" type="time" value="09:00" required></label>
-        <label>每个商品次数<input id="schedule-repeat" type="number" min="1" max="3" value="1" required></label>
-        <label><span>启用定时任务</span><input id="schedule-enabled" type="checkbox" style="width:18px;height:18px"></label>
-        <div style="grid-column:1/-1"><strong>执行账号</strong><div id="schedule-phones" class="product-list"></div></div>
-        <div style="grid-column:1/-1"><strong>定时兑换商品</strong><div id="schedule-products" class="product-list"></div></div>
-        <button class="btn btn-primary" type="submit">保存定时设置</button>
-        <div id="schedule-status" class="status" role="status"></div>
-      </form>
-    </section>
-    <section class="panel">
       <div class="panel-head"><h2>商城验证码登录</h2></div>
       <form id="market-login-form" class="market-login-form"><label>手机号<select id="market-phone" name="phone" required></select></label><label>验证码<input id="market-code" name="code" inputmode="numeric" maxlength="6" placeholder="请输入短信验证码" required></label><button id="market-code-button" class="btn btn-secondary" type="button">发送验证码</button><button id="market-login-button" class="btn btn-primary" type="submit">登录商城</button></form>
       <div class="market-login"><div class="market-login-copy"><p id="market-login-status">只需要输入手机号和短信验证码。登录后点击塔斯汀、星巴克或和包商城商品，即可自动加购。</p><div id="market-orders" class="subtle">登录后可查看已领取列表。</div></div></div>
@@ -105,7 +93,6 @@
     const formStatus = document.querySelector('#form-status');
     const taskStatus = document.querySelector('#task-status');
     const productList = document.querySelector('#product-list');
-    const scheduleStatus = document.querySelector('#schedule-status');
     let products = [];
     const message = (el, text, ok = true) => { el.textContent = text; el.className = `status show ${ok ? 'ok' : 'error'}`; };
     const api = async (url, options) => { const response = await fetch(url, options); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.msg || `请求失败 (${response.status})`); return data; };
@@ -123,10 +110,6 @@
         const accountData = await api('/api/accounts');
         const accounts = accountData.accounts || [];
         marketPhone.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.phone)}">${escapeHtml(a.phone)} · ${escapeHtml(a.label || '未设置备注')}</option>`).join('');
-        const schedule = await api('/api/schedule');
-        document.querySelector('#schedule-time').value=schedule.time||'09:00'; document.querySelector('#schedule-repeat').value=schedule.repeat||1; document.querySelector('#schedule-enabled').checked=Boolean(schedule.enabled);
-        document.querySelector('#schedule-phones').innerHTML=accounts.map(a=>`<label class="product"><input type="checkbox" value="${escapeHtml(a.phone)}" ${schedule.phones?.includes(a.phone)?'checked':''}><span>${escapeHtml(a.phone)} · ${escapeHtml(a.label||'未设置备注')}</span></label>`).join('')||'<div class="empty">请先添加账号</div>';
-        document.querySelector('#schedule-products').innerHTML=products.map(p=>`<label class="product"><input type="checkbox" value="${escapeHtml(p.amount)}" ${schedule.amounts?.includes(p.amount)?'checked':''}><span>${escapeHtml(p.price)} 元 · ${escapeHtml(p.name)}</span></label>`).join('');
         if (!accounts.length) { accountsEl.innerHTML = '<div class="empty">还没有账号，请先添加手机号。</div>'; return; }
         accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="test-login">测试登录验证码</button><button class="btn btn-secondary" data-action="test-claim">测试兑换验证码</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div><div class="task-products" data-products>当前商品：未启动</div><div class="log-panel"><div class="log-meta" data-status>状态：空闲</div><div class="logs" data-logs>暂无日志</div></div></div>`).join('');
         pollStatuses();
@@ -159,7 +142,6 @@
       } catch (error) { message(taskStatus, error.message, false); } finally { button.disabled = false; }
     });
     document.querySelector('#refresh').addEventListener('click', load); load();
-    document.querySelector('#schedule-form').addEventListener('submit', async event => { event.preventDefault(); try { const phones=[...document.querySelectorAll('#schedule-phones input:checked')].map(x=>x.value); const amounts=[...document.querySelectorAll('#schedule-products input:checked')].map(x=>x.value); if(document.querySelector('#schedule-enabled').checked && (!phones.length || !amounts.length)) throw new Error('启用定时任务时必须选择账号和商品'); const result=await request('/api/schedule',{enabled:document.querySelector('#schedule-enabled').checked,time:document.querySelector('#schedule-time').value,repeat:Number(document.querySelector('#schedule-repeat').value),phones,amounts}); message(scheduleStatus,result.msg||'已保存'); } catch(error) { message(scheduleStatus,error.message,false); } });
     document.querySelector('#select-all').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = true; }));
     document.querySelector('#select-none').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = false; }));
     async function pollStatuses() { for (const row of accountsEl.querySelectorAll('.account')) { try { const data=await api(`/api/status?phone=${encodeURIComponent(row.dataset.phone)}`); row.querySelector('[data-status]').textContent=`状态：${data.state || 'idle'}${data.error ? ` · ${data.error}` : ''}`; const amounts=[...new Set(data.payload?.amounts || [])]; row.querySelector('[data-products]').textContent=amounts.length ? `当前商品：${amounts.join(' 元、')} 元` : '当前商品：未启动'; const logs=data.logs || []; row.querySelector('[data-logs]').textContent=logs.length ? logs.map(item=>`${new Date(item.time).toLocaleTimeString()}  ${item.text}`).join('\n') : '暂无日志'; } catch {} } }
