@@ -9,15 +9,14 @@
     * { box-sizing: border-box; }
     :root { font-family: Inter, "Microsoft YaHei", system-ui, sans-serif; color: #202124; background: #f7f8fa; }
     body { margin: 0; min-width: 320px; } button, input, select { font: inherit; } button { cursor: pointer; }
-    :root { --ink: #17221d; --muted: #6c7871; --line: #dce7df; --mint: #e8f4eb; --green: #176b4b; --orange: #f08a4b; }
-    .topbar { height: 72px; background: #173d2d; color: #f4fbf5; border-bottom: 1px solid #265b43; display: flex; align-items: center; }
-    .topbar-inner, main { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
-    .brand { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 750; letter-spacing: .02em; }
-    .logo { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #173d2d; background: #f5c56e; font-weight: 850; }
-    main { padding: 42px 0 72px; } .heading { margin-bottom: 28px; }
-    h1 { font-size: clamp(28px, 4vw, 42px); margin: 0 0 10px; letter-spacing: -.04em; color: var(--ink); } h2 { margin: 0; font-size: 17px; letter-spacing: 0; }
-    .subtle { margin: 0; color: var(--muted); font-size: 14px; }
-    .panel { background: #fff; border: 1px solid var(--line); border-radius: 18px; margin-bottom: 22px; box-shadow: 0 12px 32px #173d2d0b; overflow: hidden; }
+    .topbar { height: 64px; background: #fff; border-bottom: 1px solid #e4e7eb; display: flex; align-items: center; }
+    .topbar-inner, main { width: min(960px, calc(100% - 32px)); margin: 0 auto; }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 700; }
+    .logo { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: #d92d20; font-weight: 800; }
+    main { padding: 32px 0 56px; } .heading { margin-bottom: 24px; }
+    h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 0; } h2 { margin: 0; font-size: 17px; letter-spacing: 0; }
+    .subtle { margin: 0; color: #687078; font-size: 14px; }
+    .panel { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 20px; }
     .panel-head { padding: 18px 20px; border-bottom: 1px solid #eceef0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .form { padding: 20px; display: grid; grid-template-columns: 1.25fr 1fr auto; gap: 14px; align-items: end; }
     label { display: grid; gap: 7px; color: #4d545b; font-size: 13px; font-weight: 600; }
@@ -40,14 +39,8 @@
     .products { padding: 18px 20px 20px; border-top: 1px solid #eceef0; }
     .products-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .products-head strong { font-size: 14px; }
-    .product-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 16px; }
-    .product-group { padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #fbfdfb; }
-    .product-group.cart-group { background: #fff9f3; border-color: #f3dfcf; }
-    .group-kicker { margin: 0 0 6px; color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    .product-group h3 { margin: 0 0 7px; color: var(--ink); font-size: 20px; }
-    .product-group > p:not(.group-kicker) { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.6; }
-    .product-list { display: grid; gap: 10px; }
-    .product { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #dfe3e7; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .product-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .product { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #dfe3e7; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
     .product.market-product { cursor: pointer; }
     .product.market-product:hover { border-color: #237a57; background: #f7fcf9; }
     .product:has(input:checked) { border-color: #237a57; background: #f1faf5; }
@@ -64,14 +57,8 @@
     .status.show { display: block; } .status.ok { color: #17603f; background: #eaf6f0; } .status.error { color: #9b241a; background: #fcecea; }
     @media (max-width: 720px) {
       .topbar-inner, main { width: min(100% - 24px, 960px); } main { padding-top: 24px; }
-      .form, .account, .product-columns { grid-template-columns: 1fr; } .actions { display: grid; grid-template-columns: repeat(3, 1fr); }
+      .form, .account { grid-template-columns: 1fr; } .actions { display: grid; grid-template-columns: repeat(3, 1fr); }
       .actions .btn { padding: 0 10px; }
-    }
-    @media (max-width: 520px) {
-      .products, .product-group { padding: 16px; }
-      .products-head { flex-wrap: wrap; }
-      .products-head strong { width: 100%; }
-      .market-login-form { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -86,7 +73,7 @@
         <label>备注<input name="label" maxlength="30" placeholder="选填"></label>
         <button class="btn btn-primary" type="submit">添加账号</button>
       </form>
-      <div class="products"><div class="products-head"><strong>选择兑换商品</strong><button id="select-all" class="btn btn-secondary" type="button">全选</button><button id="select-none" class="btn btn-secondary" type="button">全不选</button></div><div class="product-columns"><section class="product-group auto-group"><p class="group-kicker">Auto claim</p><h3>和包自动领取</h3><p>1 元、2 元和 5 元权益走和包自动兑换流程。5 元版本不能加入商城购物车。</p><div id="auto-product-list" class="product-list"><div class="empty">正在加载商品...</div></div></section><section class="product-group cart-group"><p class="group-kicker">Shopping cart</p><h3>商城购物车领取</h3><p>登录商城后点击右侧商品，系统会自动加购并发送商品验证码。</p><div id="cart-product-list" class="product-list"><div class="empty">正在加载商品...</div></div></section></div></div>
+      <div class="products"><div class="products-head"><strong>选择兑换商品</strong><button id="select-all" class="btn btn-secondary" type="button">全选</button><button id="select-none" class="btn btn-secondary" type="button">全不选</button></div><div id="product-list" class="product-list"><div class="empty">正在加载商品...</div></div></div>
       <div class="products"><label class="daily-limit">每日每个商品兑换次数（最多 3 次）<input id="daily-limit" type="number" min="1" max="3" value="1" required></label></div>
       <div id="form-status" class="status" role="status"></div>
     </section>
@@ -105,8 +92,7 @@
     const accountsEl = document.querySelector('#accounts');
     const formStatus = document.querySelector('#form-status');
     const taskStatus = document.querySelector('#task-status');
-    const autoProductList = document.querySelector('#auto-product-list');
-    const cartProductList = document.querySelector('#cart-product-list');
+    const productList = document.querySelector('#product-list');
     let products = [];
     const message = (el, text, ok = true) => { el.textContent = text; el.className = `status show ${ok ? 'ok' : 'error'}`; };
     const api = async (url, options) => { const response = await fetch(url, options); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.msg || `请求失败 (${response.status})`); return data; };
@@ -119,9 +105,8 @@
         const productData = await api('/api/products');
         products = Array.isArray(productData) ? productData : productData.products;
         if (!Array.isArray(products)) throw new Error('商品接口返回格式不正确');
-        const renderProducts = (items, market = false) => items.length ? items.map(p => `<label class="product ${market ? 'market-product' : ''}" data-amount="${escapeHtml(p.amount)}"><input type="checkbox" value="${escapeHtml(p.amount)}"><span>${escapeHtml(p.price ?? (Number(p.priceCents) / 100))} 元 · ${escapeHtml(p.name)}<small>${market ? '点击自动加购并发送商品验证码' : `自动领取 · 权益代码 ${escapeHtml(p.rightsCode)}`}</small></span></label>`).join('') : '<div class="empty">暂无商品</div>';
-        autoProductList.innerHTML = renderProducts(products.filter(p => p.channel === 'hebao'));
-        cartProductList.innerHTML = renderProducts(products.filter(p => p.marketMode === 'cart'), true);
+        const claimProducts = products.filter(p => p.channel === 'hebao' || p.marketMode === 'cart');
+        productList.innerHTML = claimProducts.length ? claimProducts.map(p => `<label class="product ${p.marketMode === 'cart' ? 'market-product' : ''}" data-amount="${escapeHtml(p.amount)}"><input type="checkbox" value="${escapeHtml(p.amount)}"><span>${escapeHtml(p.price ?? (Number(p.priceCents) / 100))} 元 · ${escapeHtml(p.name)}<small>${p.marketMode === 'cart' ? '商城登录后点击此商品，自动加购并发送验证码' : `权益代码 ${escapeHtml(p.rightsCode)}`}</small></span></label>`).join('') : '<div class="empty">暂无可选商品，请刷新页面或重新部署 Worker。</div>';
         const accountData = await api('/api/accounts');
         const accounts = accountData.accounts || [];
         marketPhone.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.phone)}">${escapeHtml(a.phone)} · ${escapeHtml(a.label || '未设置备注')}</option>`).join('');
@@ -141,7 +126,7 @@
     const marketCodeButton = document.querySelector('#market-code-button');
     marketCodeButton.addEventListener('click', async () => { if (!marketPhone.value) { message(taskStatus,'请先添加项目账号',false); return; } marketLoginPhone=marketPhone.value; marketCodeButton.disabled=true; try { await request('/api/market-login/code',{phone:marketLoginPhone}); marketLoginStatus.textContent='商城登录验证码已发送，请查收短信'; } catch(error) { marketLoginStatus.textContent=error.message; } finally { marketCodeButton.disabled=false; } });
     document.querySelector('#market-login-form').addEventListener('submit', async event => { event.preventDefault(); if (!marketPhone.value) return; marketLoginPhone=marketPhone.value; marketLoginButton.disabled=true; try { const result=await request('/api/market-login/login',{phone:marketLoginPhone,code:document.querySelector('#market-code').value}); marketLoginStatus.textContent=`商城已登录：${result.mobile || '当前账号'}，现在点击商城商品即可自动加购`; marketLoginButton.textContent='已登录'; await loadMarketOrders(); } catch(error) { marketLoginStatus.textContent=error.message; } finally { marketLoginButton.disabled=false; } });
-    cartProductList.addEventListener('click', async event => { const card=event.target.closest('.market-product'); if (!card || event.target.closest('input')) return; const amount=card.dataset.amount; if (!marketLoginPhone) { message(taskStatus,'请先在“商城网页登录”中选择项目账号并完成短信验证码登录',false); return; } card.style.pointerEvents='none'; try { const result=await request('/api/market-cart/send',{phone:marketLoginPhone,amount}); card.querySelector('input').checked=true; message(taskStatus,result.msg||'商城验证码已发送，请查收短信'); } catch(error) { message(taskStatus,error.message,false); } finally { card.style.pointerEvents=''; } });
+    productList.addEventListener('click', async event => { const card=event.target.closest('.market-product'); if (!card || event.target.closest('input')) return; const amount=card.dataset.amount; if (!marketLoginPhone) { message(taskStatus,'请先在“商城网页登录”中选择项目账号并完成短信验证码登录',false); return; } card.style.pointerEvents='none'; try { const result=await request('/api/market-cart/send',{phone:marketLoginPhone,amount}); card.querySelector('input').checked=true; message(taskStatus,result.msg||'商城验证码已发送，请查收短信'); } catch(error) { message(taskStatus,error.message,false); } finally { card.style.pointerEvents=''; } });
     document.querySelector('#market-cart-submit-form').addEventListener('submit', async event => { event.preventDefault(); const form=event.currentTarget, submit=form.querySelector('button'); submit.disabled=true; try { const result=await request('/api/market-cart/submit',{phone:marketLoginPhone,smsCode:form.smsCode.value}); message(taskStatus,result.msg||'商城订单已提交'); } catch(error) { message(taskStatus,error.message,false); } finally { submit.disabled=false; } });
     document.querySelector('#add-form').addEventListener('submit', async event => {
       event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector('button'); submit.disabled = true;
@@ -153,12 +138,12 @@
       const row = button.closest('.account'); const phone = row.dataset.phone; const action = button.dataset.action; button.disabled = true;
       try {
         if (action === 'delete') { await request('/api/accounts', {phone, action:'delete'}); message(taskStatus, `${phone} 已删除`); await load(); }
-        else { const amounts=[...autoProductList.querySelectorAll('input[type="checkbox"]:checked')].map(input=>input.value); const repeat=Math.max(1,Math.min(3,Number(document.querySelector('#daily-limit').value)||1)); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const endpoint=action==='test-login'?'/api/test-login':action==='test-claim'?'/api/test-claim':`/api/${action}`; const data=action==='test-claim'?{phone,amount:amounts[0]||'hebao-1'}:{phone,amounts,repeat}; const result = await request(endpoint, data); message(taskStatus, result.msg || '操作已发送'); await pollStatuses(); }
+        else { const amounts=[...productList.querySelectorAll('input:checked')].map(input=>input.value); const repeat=Math.max(1,Math.min(3,Number(document.querySelector('#daily-limit').value)||1)); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const endpoint=action==='test-login'?'/api/test-login':action==='test-claim'?'/api/test-claim':`/api/${action}`; const data=action==='test-claim'?{phone,amount:amounts[0]||'hebao-1'}:{phone,amounts,repeat}; const result = await request(endpoint, data); message(taskStatus, result.msg || '操作已发送'); await pollStatuses(); }
       } catch (error) { message(taskStatus, error.message, false); } finally { button.disabled = false; }
     });
     document.querySelector('#refresh').addEventListener('click', load); load();
-    document.querySelector('#select-all').addEventListener('click', () => autoProductList.querySelectorAll('input').forEach(input => { input.checked = true; }));
-    document.querySelector('#select-none').addEventListener('click', () => autoProductList.querySelectorAll('input').forEach(input => { input.checked = false; }));
+    document.querySelector('#select-all').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = true; }));
+    document.querySelector('#select-none').addEventListener('click', () => productList.querySelectorAll('input').forEach(input => { input.checked = false; }));
     async function pollStatuses() { for (const row of accountsEl.querySelectorAll('.account')) { try { const data=await api(`/api/status?phone=${encodeURIComponent(row.dataset.phone)}`); row.querySelector('[data-status]').textContent=`状态：${data.state || 'idle'}${data.error ? ` · ${data.error}` : ''}`; const amounts=[...new Set(data.payload?.amounts || [])]; row.querySelector('[data-products]').textContent=amounts.length ? `当前商品：${amounts.join(' 元、')} 元` : '当前商品：未启动'; const logs=data.logs || []; row.querySelector('[data-logs]').textContent=logs.length ? logs.map(item=>`${new Date(item.time).toLocaleTimeString()}  ${item.text}`).join('\n') : '暂无日志'; } catch {} } }
     setInterval(pollStatuses, 2000);
   </script>
