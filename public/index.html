@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f7f8fa">
-  <title>和包自动领取</title>
+  <title>权益超市自动领取</title>
   <style>
     * { box-sizing: border-box; }
     :root { font-family: Inter, "Microsoft YaHei", system-ui, sans-serif; color: #202124; background: #f7f8fa; }
@@ -41,7 +41,15 @@
     .products-head strong { font-size: 14px; }
     .product-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .product { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #dfe3e7; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .product.market-product { cursor: pointer; }
+    .product.market-product:hover { border-color: #237a57; background: #f7fcf9; }
     .product:has(input:checked) { border-color: #237a57; background: #f1faf5; }
+    .market-login { padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+    .market-login-form { padding: 18px 20px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
+    .market-login-copy { display: grid; gap: 8px; }
+    .market-login-copy .status { margin: 0; }
+    .market-login-copy p { margin: 0; color: #687078; font-size: 13px; }
+    @media (max-width: 520px) { .market-login { grid-template-columns: 1fr; } }
     .product input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: #237a57; }
     .daily-limit { margin-top: 14px; max-width: 260px; }
     .product small { display: block; color: #737a82; font-size: 12px; margin-top: 3px; font-weight: 400; }
@@ -55,7 +63,7 @@
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="logo">和</span>和包自动领取</div></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="logo">权</span>权益超市自动领取</div></div></header>
   <main>
     <div class="heading"><h1>账号与领取任务</h1><p class="subtle">添加手机号，选择权益后启动领取任务。</p></div>
     <section class="panel">
@@ -82,9 +90,14 @@
       </form>
     </section>
     <section class="panel">
+      <div class="panel-head"><h2>商城验证码登录</h2></div>
+      <form id="market-login-form" class="market-login-form"><label>手机号<select id="market-phone" name="phone" required></select></label><label>验证码<input id="market-code" name="code" inputmode="numeric" maxlength="6" placeholder="请输入短信验证码" required></label><button id="market-code-button" class="btn btn-secondary" type="button">发送验证码</button><button id="market-login-button" class="btn btn-primary" type="submit">登录商城</button></form>
+      <div class="market-login"><div class="market-login-copy"><p id="market-login-status">只需要输入手机号和短信验证码。登录后点击塔斯汀、星巴克或和包商城商品，即可自动加购。</p><div id="market-orders" class="subtle">登录后可查看已领取列表。</div></div></div>
+    </section>
+    <section class="panel">
       <div class="panel-head"><h2>账号列表</h2><button id="refresh" class="btn btn-secondary" type="button">刷新</button></div>
       <div id="accounts" class="accounts"><div class="empty">正在加载...</div></div>
-      <div id="task-status" class="status" role="status"></div>
+      <div class="products"><strong>商城购物车领取</strong><p class="subtle">完成商城验证码登录后，点击上方塔斯汀、星巴克或和包商品即可自动加购并发送商品验证码。</p><form id="market-cart-submit-form" class="form" style="padding:14px 0 0;grid-template-columns:1fr auto"><label>商品验证码<input name="smsCode" inputmode="numeric" maxlength="6" placeholder="收到商品短信后输入" required></label><button class="btn btn-primary" type="submit">提交商城订单</button></form></div><div id="task-status" class="status" role="status"></div>
     </section>
   </main>
   <script>
@@ -102,20 +115,36 @@
     async function load() {
       accountsEl.innerHTML = '<div class="empty">正在加载...</div>';
       try {
-        products = await api('/api/products');
-        productList.innerHTML = products.map(p => `<label class="product"><input type="checkbox" value="${escapeHtml(p.amount)}"><span>${escapeHtml(p.amount)} 元 · ${escapeHtml(p.name)}<small>权益代码 ${escapeHtml(p.rightsCode)}</small></span></label>`).join('');
+        const productData = await api('/api/products');
+        products = Array.isArray(productData) ? productData : productData.products;
+        if (!Array.isArray(products)) throw new Error('商品接口返回格式不正确');
+        const claimProducts = products.filter(p => p.channel === 'hebao' || p.marketMode === 'cart');
+        productList.innerHTML = claimProducts.length ? claimProducts.map(p => `<label class="product ${p.marketMode === 'cart' ? 'market-product' : ''}" data-amount="${escapeHtml(p.amount)}"><input type="checkbox" value="${escapeHtml(p.amount)}"><span>${escapeHtml(p.price ?? (Number(p.priceCents) / 100))} 元 · ${escapeHtml(p.name)}<small>${p.marketMode === 'cart' ? '商城登录后点击此商品，自动加购并发送验证码' : `权益代码 ${escapeHtml(p.rightsCode)}`}</small></span></label>`).join('') : '<div class="empty">暂无可选商品，请刷新页面或重新部署 Worker。</div>';
         const accountData = await api('/api/accounts');
         const accounts = accountData.accounts || [];
+        marketPhone.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.phone)}">${escapeHtml(a.phone)} · ${escapeHtml(a.label || '未设置备注')}</option>`).join('');
         const schedule = await api('/api/schedule');
         document.querySelector('#schedule-time').value=schedule.time||'09:00'; document.querySelector('#schedule-repeat').value=schedule.repeat||1; document.querySelector('#schedule-enabled').checked=Boolean(schedule.enabled);
         document.querySelector('#schedule-phones').innerHTML=accounts.map(a=>`<label class="product"><input type="checkbox" value="${escapeHtml(a.phone)}" ${schedule.phones?.includes(a.phone)?'checked':''}><span>${escapeHtml(a.phone)} · ${escapeHtml(a.label||'未设置备注')}</span></label>`).join('')||'<div class="empty">请先添加账号</div>';
-        document.querySelector('#schedule-products').innerHTML=products.map(p=>`<label class="product"><input type="checkbox" value="${escapeHtml(p.amount)}" ${schedule.amounts?.includes(p.amount)?'checked':''}><span>${escapeHtml(p.amount)} 元 · ${escapeHtml(p.name)}</span></label>`).join('');
+        document.querySelector('#schedule-products').innerHTML=products.map(p=>`<label class="product"><input type="checkbox" value="${escapeHtml(p.amount)}" ${schedule.amounts?.includes(p.amount)?'checked':''}><span>${escapeHtml(p.price)} 元 · ${escapeHtml(p.name)}</span></label>`).join('');
         if (!accounts.length) { accountsEl.innerHTML = '<div class="empty">还没有账号，请先添加手机号。</div>'; return; }
         accountsEl.innerHTML = accounts.map(account => `<div class="account" data-phone="${escapeHtml(account.phone)}"><div><div class="phone">${escapeHtml(account.phone)}</div><div class="label">${escapeHtml(account.label || '未设置备注')}</div></div><div class="actions"><button class="btn btn-primary" data-action="start">启动</button><button class="btn btn-secondary" data-action="test-login">测试登录验证码</button><button class="btn btn-secondary" data-action="test-claim">测试兑换验证码</button><button class="btn btn-secondary" data-action="stop">停止</button><button class="btn btn-danger" data-action="delete">删除</button></div><div class="task-products" data-products>当前商品：未启动</div><div class="log-panel"><div class="log-meta" data-status>状态：空闲</div><div class="logs" data-logs>暂无日志</div></div></div>`).join('');
         pollStatuses();
       } catch (error) { accountsEl.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
     }
 
+    let marketLoginPhone = '';
+    const marketPhone = document.querySelector('#market-phone');
+    const marketLoginStatus = document.querySelector('#market-login-status');
+    const marketOrders = document.querySelector('#market-orders');
+    const renderMarketOrders = orders => { const items = Array.isArray(orders) ? orders : []; marketOrders.innerHTML = items.length ? items.map(order => `<div>${escapeHtml(order.skuName || '商城商品')} · ${escapeHtml(order.status === 1 ? '已领取' : `状态 ${order.status ?? '-'}`)} · ${escapeHtml(order.acceptTime ? new Date(Number(order.acceptTime)).toLocaleString() : '')}</div>`).join('') : '暂无已领取记录'; };
+    const loadMarketOrders = async () => { if (!marketLoginPhone) return; try { const result = await request('/api/market-orders', {phone:marketLoginPhone}); renderMarketOrders(result.orders); } catch (error) { marketOrders.textContent = error.message; } };
+    const marketLoginButton = document.querySelector('#market-login-button');
+    const marketCodeButton = document.querySelector('#market-code-button');
+    marketCodeButton.addEventListener('click', async () => { if (!marketPhone.value) { message(taskStatus,'请先添加项目账号',false); return; } marketLoginPhone=marketPhone.value; marketCodeButton.disabled=true; try { await request('/api/market-login/code',{phone:marketLoginPhone}); marketLoginStatus.textContent='商城登录验证码已发送，请查收短信'; } catch(error) { marketLoginStatus.textContent=error.message; } finally { marketCodeButton.disabled=false; } });
+    document.querySelector('#market-login-form').addEventListener('submit', async event => { event.preventDefault(); if (!marketPhone.value) return; marketLoginPhone=marketPhone.value; marketLoginButton.disabled=true; try { const result=await request('/api/market-login/login',{phone:marketLoginPhone,code:document.querySelector('#market-code').value}); marketLoginStatus.textContent=`商城已登录：${result.mobile || '当前账号'}，现在点击商城商品即可自动加购`; marketLoginButton.textContent='已登录'; await loadMarketOrders(); } catch(error) { marketLoginStatus.textContent=error.message; } finally { marketLoginButton.disabled=false; } });
+    productList.addEventListener('click', async event => { const card=event.target.closest('.market-product'); if (!card || event.target.closest('input')) return; const amount=card.dataset.amount; if (!marketLoginPhone) { message(taskStatus,'请先在“商城网页登录”中选择项目账号并完成短信验证码登录',false); return; } card.style.pointerEvents='none'; try { const result=await request('/api/market-cart/send',{phone:marketLoginPhone,amount}); card.querySelector('input').checked=true; message(taskStatus,result.msg||'商城验证码已发送，请查收短信'); } catch(error) { message(taskStatus,error.message,false); } finally { card.style.pointerEvents=''; } });
+    document.querySelector('#market-cart-submit-form').addEventListener('submit', async event => { event.preventDefault(); const form=event.currentTarget, submit=form.querySelector('button'); submit.disabled=true; try { const result=await request('/api/market-cart/submit',{phone:marketLoginPhone,smsCode:form.smsCode.value}); message(taskStatus,result.msg||'商城订单已提交'); } catch(error) { message(taskStatus,error.message,false); } finally { submit.disabled=false; } });
     document.querySelector('#add-form').addEventListener('submit', async event => {
       event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector('button'); submit.disabled = true;
       try { const phone=form.phone.value; await request('/api/accounts', {phone, label:form.label.value}); message(formStatus, '账号已添加，请在账号列表中启动任务'); form.reset(); await load(); }
@@ -126,7 +155,7 @@
       const row = button.closest('.account'); const phone = row.dataset.phone; const action = button.dataset.action; button.disabled = true;
       try {
         if (action === 'delete') { await request('/api/accounts', {phone, action:'delete'}); message(taskStatus, `${phone} 已删除`); await load(); }
-        else { const amounts=[...productList.querySelectorAll('input:checked')].map(input=>input.value); const repeat=Math.max(1,Math.min(3,Number(document.querySelector('#daily-limit').value)||1)); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const endpoint=action==='test-login'?'/api/test-login':action==='test-claim'?'/api/test-claim':`/api/${action}`; const data=action==='test-claim'?{phone,amount:amounts[0]||'1'}:{phone,amounts,repeat}; const result = await request(endpoint, data); message(taskStatus, result.msg || '操作已发送'); await pollStatuses(); }
+        else { const amounts=[...productList.querySelectorAll('input:checked')].map(input=>input.value); const repeat=Math.max(1,Math.min(3,Number(document.querySelector('#daily-limit').value)||1)); if (action === 'start' && !amounts.length) throw new Error('请至少选择一个兑换商品'); const endpoint=action==='test-login'?'/api/test-login':action==='test-claim'?'/api/test-claim':`/api/${action}`; const data=action==='test-claim'?{phone,amount:amounts[0]||'hebao-1'}:{phone,amounts,repeat}; const result = await request(endpoint, data); message(taskStatus, result.msg || '操作已发送'); await pollStatuses(); }
       } catch (error) { message(taskStatus, error.message, false); } finally { button.disabled = false; }
     });
     document.querySelector('#refresh').addEventListener('click', load); load();
